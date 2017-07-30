@@ -123,6 +123,7 @@ public:
         assert(genesis.hashMerkleRoot == uint256S("0x4af38ca0e323c0a5226208a73b7589a52c030f234810cf51e13e3249fc0123e7"));
 
         // Note that of those with the service bits flag, most only support a subset of possible options
+        /*
         vSeeds.push_back(CDNSSeedData("useast1.vtconline.org","useast1.vtconline.org", false));
         vSeeds.push_back(CDNSSeedData("fr1.vtconline.org", "fr1.vtconline.org", false));
         vSeeds.push_back(CDNSSeedData("uk1.vtconline.org","uk1.vtconline.org", false));
@@ -131,6 +132,7 @@ public:
         vSeeds.push_back(CDNSSeedData("p2pool.kosmoplovci.org", "p2pool.kosmoplovci.org", false));
         vSeeds.push_back(CDNSSeedData("crypto.office-on-the.net", "crypto.office-on-the.net", false));
         vSeeds.push_back(CDNSSeedData("mail.hoosieryouth.org", "mail.hoosieryouth.org", false));
+        */
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,71);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
@@ -224,8 +226,9 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
+        /*
         vSeeds.push_back(CDNSSeedData("fr1.vtconline.org", "fr1.vtconline.org", false));
-
+        */
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,74);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
