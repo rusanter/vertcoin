@@ -44,6 +44,29 @@ uint256 CBlockHeader::GetHash() const
     return SerializeHash(*this);
 }
 
+// todo mainnet may fail with this version of function
+uint256 CBlockHeader::GetPoWHash(int nHeight) const
+{
+    uint256 thash;
+    uint64_t T = 1, R = 4, C = 4;
+
+    /*switch (true) {
+        case
+    }*/
+
+         if (nHeight >   188) { T =    1; R = 1024; C =  512; }
+    else if (nHeight >   187) { T =    1; R =   16; C =  256; }
+    else if (nHeight >   186) { T =    1; R =  256; C =   16; }
+    else if (nHeight >   185) { T =    1; R =   32; C =   32; }
+    else if (nHeight >   172) { T =    1; R =   32; C =    4; }
+    else if (nHeight >   136) { T =    4; R =    4; C =    4; }
+
+    lyra2re2_hash_n(BEGIN(nVersion), BEGIN(thash), T, R, C);
+
+    return thash;
+}
+
+/*
 uint256 CBlockHeader::GetPoWHash(int nHeight) const
 {
    uint256 thash;
@@ -61,6 +84,7 @@ uint256 CBlockHeader::GetPoWHash(int nHeight) const
    }
    return thash;
 }
+*/
 
 std::string CBlock::ToString() const
 {

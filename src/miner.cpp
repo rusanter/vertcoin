@@ -24,6 +24,7 @@
 #include "txmempool.h"
 #include "util.h"
 #include "utilmoneystr.h"
+#include "utilstrencodings.h"
 #include "validationinterface.h"
 
 #include <algorithm>
@@ -144,6 +145,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     nHeight = pindexPrev->nHeight + 1;
 
     pblock->nVersion = ComputeBlockVersion(pindexPrev, chainparams.GetConsensus());
+    pblock->nVersion |= Consensus::DEPLOYMENT_SEGWIT; // hack
     // -regtest only: allow overriding block.nVersion with
     // -blockversion=N to test forking scenarios
     if (chainparams.MineBlocksOnDemand())
@@ -614,6 +616,8 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
 //
 // Internal miner
 //
+double dHashesPerSec = 0.0;
+int64_t nHPSTimerStart = 0;
 
 //
 // ScanHash scans nonces looking for a hash with at least some zero bits.
@@ -636,6 +640,38 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
         // Write the last 4 bytes of the block header (the nonce) to a copy of
         // the double-SHA256 state, and compute the result.
         CHash256(hasher).Write((unsigned char*)&nNonce, 4).Finalize((unsigned char*)phash);
+
+        // Return the nonce if the hash has at least some zero bits,
+        // caller will check if it has enough to reach the target
+        if (((uint16_t*)phash)[15] == 0)
+            return true;
+
+        // If nothing found after trying for a while, return -1
+        if ((nNonce & 0xfff) == 0)
+            return false;
+    }
+}
+
+//
+// ScanHash scans nonces looking for a hash with at least some zero bits.
+// The nonce is usually preserved between calls, but periodically or if the
+// nonce is 0xffff0000 or above, the block is rebuilt and nNonce starts over at
+// zero.
+//
+bool static ScanHash2(CBlockHeader *pblock, uint32_t& nNonce, uint256 *phash)
+{
+    while (true) {
+    //while (pblock->nNonce < nInnerLoopCount && ) {
+        pblock->nNonce = nNonce++;
+
+        //const uint256 hash = pblock->GetHash();
+        //                                                    T  R  C
+        lyra2re2_hash_n(BEGIN(pblock->nVersion), BEGIN(*phash), 1, 1024, 512);
+        //std::memcpy(phash, &hash, sizeof(uint256));
+
+        if (CheckProofOfWork(*phash, pblock->nBits, Params().GetConsensus())) {
+            return true;
+        }
 
         // Return the nonce if the hash has at least some zero bits,
         // caller will check if it has enough to reach the target
@@ -678,6 +714,7 @@ void static BitcoinMiner(const CChainParams& chainparams)
     RenameThread("bitcoin-miner");
 
     unsigned int nExtraNonce = 0;
+    nHPSTimerStart = 0;
 
     boost::shared_ptr<CReserveScript> coinbaseScript;
     GetMainSignals().ScriptForMining(coinbaseScript);
@@ -709,6 +746,8 @@ void static BitcoinMiner(const CChainParams& chainparams)
             //
             unsigned int nTransactionsUpdatedLast = mempool.GetTransactionsUpdated();
             CBlockIndex* pindexPrev = chainActive.Tip();
+            // Get next block index
+            int nHeight = chainActive.Height() + 1;
 
             std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(chainparams).CreateNewBlock(coinbaseScript->reserveScript));
             if (!pblocktemplate.get())
@@ -719,8 +758,8 @@ void static BitcoinMiner(const CChainParams& chainparams)
             CBlock *pblock = &pblocktemplate->block;
             IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
 
-            LogPrintf("Running BitcoinMiner with %u transactions in block (%u bytes)\n", pblock->vtx.size(),
-                ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
+            LogPrintf("Running BitcoinMiner with %u transactions in block (%u bytes), height=%d\n", pblock->vtx.size(),
+                ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION), nHeight);
 
             //
             // Search
@@ -729,15 +768,27 @@ void static BitcoinMiner(const CChainParams& chainparams)
             arith_uint256 hashTarget = arith_uint256().SetCompact(pblock->nBits);
             uint256 hash;
             uint32_t nNonce = 0;
+            uint32_t nOldNonce = 0;
             while (true) {
+                //bool fFound = ScanHash(pblock, nNonce, &hash);
+                bool fFound = ScanHash2(pblock, nNonce, &hash);
+                uint32_t nHashesDone = nNonce - nOldNonce;
+                nOldNonce = nNonce;
+
                 // Check if something found
-                if (ScanHash(pblock, nNonce, &hash))
+                if (fFound)
                 {
+                    //LogPrintf("(Debug) Found hash %s:\n", hash.GetHex());
+
                     if (UintToArith256(hash) <= hashTarget)
                     {
                         // Found a solution
-                        pblock->nNonce = nNonce;
-                        assert(hash == pblock->GetHash());
+                        //pblock->nNonce = nNonce;
+
+                        LogPrintf("assert(%s == %s)\n",
+                                  hash.GetHex(),
+                                  pblock->GetPoWHash(nHeight).GetHex());
+                        assert(hash == pblock->GetPoWHash(nHeight));
 
                         SetThreadPriority(THREAD_PRIORITY_NORMAL);
                         LogPrintf("BitcoinMiner:\n");
@@ -751,6 +802,40 @@ void static BitcoinMiner(const CChainParams& chainparams)
                             throw boost::thread_interrupted();
 
                         break;
+                    }
+                }
+
+                // Meter hashes/sec
+                static int64_t nHashCounter;
+                if (nHPSTimerStart == 0)
+                {
+                    nHPSTimerStart = GetTimeMillis();
+                    nHashCounter = 0;
+                }
+                else
+                    nHashCounter += nHashesDone;
+                if (GetTimeMillis() - nHPSTimerStart > 4000)
+                {
+                    static CCriticalSection cs;
+                    {
+                        LOCK(cs);
+                        if (GetTimeMillis() - nHPSTimerStart > 4000)
+                        {
+                            dHashesPerSec = 1000.0 * nHashCounter / (GetTimeMillis() - nHPSTimerStart);
+                            nHPSTimerStart = GetTimeMillis();
+                            nHashCounter = 0;
+                            static int64_t nLogTime;
+                            if (GetTime() - nLogTime > 30/* * 60*/)
+                            {
+                                nLogTime = GetTime();
+                                if (dHashesPerSec > 4000000)
+                                    LogPrintf("hashmeter %6.0f Mhash/s\n", dHashesPerSec/1000000.0);
+                                else if (dHashesPerSec > 5000)
+                                    LogPrintf("hashmeter %6.0f khash/s\n", dHashesPerSec/1000.0);
+                                else
+                                    LogPrintf("hashmeter %6.0f hash/s\n", dHashesPerSec);
+                            }
+                        }
                     }
                 }
 

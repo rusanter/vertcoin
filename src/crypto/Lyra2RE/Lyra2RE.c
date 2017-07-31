@@ -72,6 +72,11 @@ void lyra2re_hash(const char* input, char* output)
 
 void lyra2re2_hash(const char* input, char* output)
 {
+    lyra2re2_hash_n(input, output, 1, 4, 4);
+}
+
+void lyra2re2_hash_n(const char* input, char* output, uint64_t timeCost, uint64_t nRows, uint64_t nCols)
+{
 	sph_blake256_context ctx_blake;
 	sph_cubehash256_context ctx_cubehash;
 	sph_keccak256_context ctx_keccak;
@@ -91,8 +96,10 @@ void lyra2re2_hash(const char* input, char* output)
     sph_cubehash256_init(&ctx_cubehash);
     sph_cubehash256(&ctx_cubehash, hashB, 32);
     sph_cubehash256_close(&ctx_cubehash, hashA);
-    
-    LYRA2(hashB, 32, hashA, 32, hashA, 32, 1, 4, 4);
+
+    //                                     T  R  C
+    //LYRA2(hashB, 32, hashA, 32, hashA, 32, 1, 4, 4);
+    LYRA2(hashB, 32, hashA, 32, hashA, 32, timeCost, nRows, nCols);
     
    	sph_skein256_init(&ctx_skein);
     sph_skein256(&ctx_skein, hashB, 32); 
