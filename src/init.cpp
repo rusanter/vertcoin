@@ -207,6 +207,7 @@ void Shutdown()
     peerLogic.reset();
     g_connman.reset();
 
+    GenerateBitcoins(false, 0, Params());
     StopTorControl();
     UnregisterNodeSignals(GetNodeSignals());
     DumpMempool();
