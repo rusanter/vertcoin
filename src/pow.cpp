@@ -29,28 +29,30 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
 	int nHeight = pindexLast->nHeight + 1;
 	if (Params().NetworkIDString() == CBaseChainParams::TESTNET)
 	{
-	    if  (nHeight < 2116) {
-	    	return GetNextWorkRequired_Bitcoin(pindexLast, pblock, params);
-	    }
-
-            // Set this to the testnet fork block
+        // Set this to the testnet fork block
 	    // Testnet set to fork at 100
-            if(pindexLast->nHeight+1 == 100)
-            {
-                LogPrintf("Getting diff at %i. Diff = 0\n", pindexLast->nHeight+1);
-                return 0x1e0ffff0;
-            }
+        /*
+        if(pindexLast->nHeight+1 == 100)
+        {
+            LogPrintf("Getting diff at %i. Diff = 0\n", pindexLast->nHeight+1);
+            return 0x1e0ffff0;
+        }
+        */
 
-      	    // testnet to 12 block difficulty adjustment interval
-	    if ((pindexLast->nHeight+1) % params.nKGWInterval != 0)
+        // testnet to 12 block difficulty adjustment interval
+        /*
+        if ((pindexLast->nHeight+1) % params.nKGWInterval != 0)
 	    {
-		CBigNum bnNew;
-		bnNew.SetCompact(pindexLast->nBits);
-		if (bnNew > bnProofOfWorkLimit) { bnNew = bnProofOfWorkLimit; }
-	    	LogPrintf("Testnet Difficulty Retarget - Kimoto Gravity Well\n");
-		return bnNew.GetCompact();
+            CBigNum bnNew;
+            bnNew.SetCompact(pindexLast->nBits);
+            if (bnNew > bnProofOfWorkLimit) { bnNew = bnProofOfWorkLimit; }
+            LogPrintf("Testnet Difficulty Retarget - Kimoto Gravity Well\n");
+
+            return bnNew.GetCompact();
 	    }
-            //return KimotoGravityWell(pindexLast, pblock, BlocksTargetSpacing, PastBlocksMin, PastBlocksMax);
+        */
+
+        return KimotoGravityWell(pindexLast, pblock, BlocksTargetSpacing, PastBlocksMin, PastBlocksMax);
 	}
 	else
 	{
@@ -59,10 +61,12 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
 		}
 		else if (nHeight == 208301) {
 	   	    return 0x1e0ffff0;
-		}
-            	return KimotoGravityWell(pindexLast, pblock, BlocksTargetSpacing, PastBlocksMin, PastBlocksMax);
-	}
+        }
+
         return KimotoGravityWell(pindexLast, pblock, BlocksTargetSpacing, PastBlocksMin, PastBlocksMax);
+	}
+
+    return KimotoGravityWell(pindexLast, pblock, BlocksTargetSpacing, PastBlocksMin, PastBlocksMax);
 }
 
 unsigned int GetNextWorkRequired_Bitcoin(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)

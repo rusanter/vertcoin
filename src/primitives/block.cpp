@@ -45,21 +45,20 @@ uint256 CBlockHeader::GetHash() const
 }
 
 // todo mainnet may fail with this version of function
-uint256 CBlockHeader::GetPoWHash(int nHeight) const
+uint256 CBlockHeader::GetPoWHash(const int nHeight) const
 {
     uint256 thash;
     uint64_t T = 1, R = 4, C = 4;
 
-    /*switch (true) {
-        case
-    }*/
-
-         if (nHeight >   188) { T =    1; R = 1024; C =  512; }
-    else if (nHeight >   187) { T =    1; R =   16; C =  256; }
-    else if (nHeight >   186) { T =    1; R =  256; C =   16; }
-    else if (nHeight >   185) { T =    1; R =   32; C =   32; }
-    else if (nHeight >   172) { T =    1; R =   32; C =    4; }
-    else if (nHeight >   136) { T =    4; R =    4; C =    4; }
+         if (nHeight >    60) {}
+    else if (nHeight >    40) { T =    4; R =    4; C =    4; }
+    else if (nHeight >    20) { T =    1; R =   32; C =    4; }
+    else if (nHeight >    10) { T =    1; R =   32; C =   32; }
+    else if (nHeight >     5) { T =    1; R =  256; C =   16; }
+    else if (nHeight >     3) { T =    1; R = 1024; C =   64; }
+    else if (nHeight >     2) { T =    1; R = 1024; C =  512; }
+    else if (nHeight >     1) { T =    1; R = 2048; C =  512; }
+    else if (nHeight >     0) { T =    1; R = 8092; C =  648; }
 
     lyra2re2_hash_n(BEGIN(nVersion), BEGIN(thash), T, R, C);
 

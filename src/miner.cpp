@@ -658,20 +658,28 @@ bool static ScanHash(const CBlockHeader *pblock, uint32_t& nNonce, uint256 *phas
 // nonce is 0xffff0000 or above, the block is rebuilt and nNonce starts over at
 // zero.
 //
-bool static ScanHash2(CBlockHeader *pblock, uint32_t& nNonce, uint256 *phash)
+bool static ScanHash2(CBlockHeader *pblock, uint32_t& nNonce, uint256 *phash, int nHeight)
 {
+    uint64_t T = 1, R = 4, C = 4;
+
+         if (nHeight >    60) {}
+    else if (nHeight >    40) { T =    4; R =    4; C =    4; }
+    else if (nHeight >    20) { T =    1; R =   32; C =    4; }
+    else if (nHeight >    10) { T =    1; R =   32; C =   32; }
+    else if (nHeight >     5) { T =    1; R =  256; C =   16; }
+    else if (nHeight >     3) { T =    1; R = 1024; C =   64; }
+    else if (nHeight >     2) { T =    1; R = 1024; C =  512; }
+    else if (nHeight >     1) { T =    1; R = 2048; C =  512; }
+    else if (nHeight >     0) { T =    1; R = 8092; C =  648; }
+
     while (true) {
-    //while (pblock->nNonce < nInnerLoopCount && ) {
         pblock->nNonce = nNonce++;
 
-        //const uint256 hash = pblock->GetHash();
-        //                                                    T  R  C
-        lyra2re2_hash_n(BEGIN(pblock->nVersion), BEGIN(*phash), 1, 1024, 512);
-        //std::memcpy(phash, &hash, sizeof(uint256));
+        lyra2re2_hash_n(BEGIN(pblock->nVersion), BEGIN(*phash), T, R, C);
 
-        if (CheckProofOfWork(*phash, pblock->nBits, Params().GetConsensus())) {
+        /*if (CheckProofOfWork(*phash, pblock->nBits, Params().GetConsensus())) {
             return true;
-        }
+        }*/
 
         // Return the nonce if the hash has at least some zero bits,
         // caller will check if it has enough to reach the target
@@ -771,7 +779,7 @@ void static BitcoinMiner(const CChainParams& chainparams)
             uint32_t nOldNonce = 0;
             while (true) {
                 //bool fFound = ScanHash(pblock, nNonce, &hash);
-                bool fFound = ScanHash2(pblock, nNonce, &hash);
+                bool fFound = ScanHash2(pblock, nNonce, &hash, nHeight);
                 uint32_t nHashesDone = nNonce - nOldNonce;
                 nOldNonce = nNonce;
 
@@ -780,7 +788,8 @@ void static BitcoinMiner(const CChainParams& chainparams)
                 {
                     //LogPrintf("(Debug) Found hash %s:\n", hash.GetHex());
 
-                    if (UintToArith256(hash) <= hashTarget)
+                    if (/*UintToArith256(hash) <= hashTarget &&*/
+                        CheckProofOfWork(hash, pblock->nBits, Params().GetConsensus()))
                     {
                         // Found a solution
                         //pblock->nNonce = nNonce;
